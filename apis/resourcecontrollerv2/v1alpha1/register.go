@@ -37,7 +37,7 @@ var (
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 )
 
-// Resourcecontrollerv2 types metadata.
+// resourcecontrollerv2 types metadata.
 var (
 	ResourceInstanceKind             = reflect.TypeOf(ResourceInstance{}).Name()
 	ResourceInstanceGroupKind        = schema.GroupKind{Group: Group, Kind: ResourceInstanceKind}.String()

@@ -22,25 +22,22 @@ import (
 	runtimev1alpha1 "github.com/crossplane/crossplane-runtime/apis/core/v1alpha1"
 )
 
-// In spec mandatory fields should be by value, and optional fields pointers
-// In status, all fields should be by value, except timestamps - metav1.Time, and runtime.RawExtension which requires special treatment
-// https://github.com/crossplane/crossplane/blob/master/design/one-pager-managed-resource-api-design.md#pointer-types-and-markers
-
 // ResourceKeyParameters are the configurable fields of a ResourceKey.
 type ResourceKeyParameters struct {
-	// The human-readable name of the key.
-	Name string `json:"name,omitempty"`
+	// The name of the key.
+	Name string `json:"name"`
 
 	// The short or long ID of resource instance or alias.
 	// +immutable
+	// +optional
 	Source *string `json:"source,omitempty"`
 
-	// SourceRef is a reference to a resource instance used to set Source
+	// A reference to a resource used to set Source
 	// +immutable
 	// +optional
 	SourceRef *runtimev1alpha1.Reference `json:"sourceRef,omitempty"`
 
-	// SourceSelector selects a reference to a resource instance used to set Source.
+	// SourceSelector selects a reference to a resource used to set Source
 	// +immutable
 	// +optional
 	SourceSelector *runtimev1alpha1.Selector `json:"sourceSelector,omitempty"`
@@ -103,13 +100,13 @@ type ResourceKeyObservation struct {
 	DeletedAt *metav1.Time `json:"deletedAt,omitempty"`
 
 	// The subject who created the key.
-	CreatedBy string `json:"created_by,omitempty"`
+	CreatedBy string `json:"createdBy,omitempty"`
 
 	// The subject who updated the key.
-	UpdatedBy string `json:"updated_by,omitempty"`
+	UpdatedBy string `json:"updatedBy,omitempty"`
 
 	// The subject who deleted the key.
-	DeletedBy string `json:"deleted_by,omitempty"`
+	DeletedBy string `json:"deletedBy,omitempty"`
 }
 
 // A ResourceKeySpec defines the desired state of a ResourceKey.
