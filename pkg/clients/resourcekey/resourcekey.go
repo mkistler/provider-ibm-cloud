@@ -1,17 +1,14 @@
 package resourcekey
 
 import (
-	"fmt"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/jeremywohl/flatten"
+	"github.com/pkg/errors"
 
-	runtimev1alpha1 "github.com/crossplane/crossplane-runtime/apis/core/v1alpha1"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/reference"
 
+	"github.com/IBM-Cloud/bluemix-go/crn"
 	rcv2 "github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 
 	"github.com/crossplane-contrib/provider-ibm-cloud/apis/resourcecontrollerv2/v1alpha1"
@@ -23,138 +20,75 @@ const (
 	StateActive = "active"
 	// StateInactive represents a service instance in a not running state
 	StateInactive = "inactive"
-	// StateRemoved means that delete has been initiated
-	StateRemoved = "removed"
 )
 
 // LateInitializeSpec fills optional and unassigned fields with the values in *rcv2.ResourceKey object.
-func LateInitializeSpec(spec *v1alpha1.ResourceKeyParameters, in *rcv2.ResourceKey) error { // nolint:gocyclo
+func LateInitializeSpec(client ibmc.ClientSession, spec *v1alpha1.ResourceKeyParameters, in *rcv2.ResourceKey) error { // nolint:gocyclo
 	if spec.Role == nil {
 		spec.Role = in.Role
 	}
-	// TODO -add parameters once https://github.com/IBM/platform-services-go-sdk/issues/57 is resolved
 	return nil
 }
 
-// GenerateCreateResourceKeyOptions produces ResourceKeyOptions object from ResourceKeyParameters object.
-func GenerateCreateResourceKeyOptions(name string, in v1alpha1.ResourceKeyParameters, o *rcv2.CreateResourceKeyOptions) error {
+// GenerateCreateResourceKeyOptions produces CreateResourceKeyOptions object from ResourceKeyParameters object.
+func GenerateCreateResourceKeyOptions(client ibmc.ClientSession, in v1alpha1.ResourceKeyParameters, o *rcv2.CreateResourceKeyOptions) error {
 	o.Name = reference.ToPtrValue(in.Name)
-	// TODO o.Parameters = helper
-	o.Role = in.Role
 	o.Source = in.Source
+	o.Parameters = in.Parameters
+	o.Role = in.Role
 	return nil
 }
 
-// GenerateUpdateResourceKeyOptions produces UpdateResourceKeyOptions object from ResourceKey object.
-func GenerateUpdateResourceKeyOptions(name, id string, in v1alpha1.ResourceKeyParameters, o *rcv2.UpdateResourceKeyOptions) error {
-	o.Name = reference.ToPtrValue(in.Name)
+// GenerateUpdateResourceKeyOptions produces UpdateResourceKeyOptions object from ResourceKeyParameters object.
+func GenerateUpdateResourceKeyOptions(client ibmc.ClientSession, id string, in v1alpha1.ResourceKeyParameters, o *rcv2.UpdateResourceKeyOptions) error {
 	o.ID = reference.ToPtrValue(id)
+	o.Name = reference.ToPtrValue(in.Name)
 	return nil
 }
 
 // GenerateObservation produces ResourceKeyObservation object from *rcv2.ResourceKey object.
-func GenerateObservation(in *rcv2.ResourceKey) (v1alpha1.ResourceKeyObservation, error) {
+func GenerateObservation(client ibmc.ClientSession, in *rcv2.ResourceKey) (v1alpha1.ResourceKeyObservation, error) {
 	o := v1alpha1.ResourceKeyObservation{
+		ID:                  reference.FromPtrValue(in.ID),
+		Guid:                reference.FromPtrValue(in.Guid),
+		Crn:                 reference.FromPtrValue(in.Crn),
+		URL:                 reference.FromPtrValue(in.URL),
 		AccountID:           reference.FromPtrValue(in.AccountID),
-		CreatedBy:           reference.FromPtrValue(in.CreatedBy),
-		DeletedBy:           reference.FromPtrValue(in.DeletedBy),
+		ResourceGroupID:     reference.FromPtrValue(in.ResourceGroupID),
+		SourceCrn:           reference.FromPtrValue(in.SourceCrn),
+		State:               reference.FromPtrValue(in.State),
 		IamCompatible:       ibmc.BoolValue(in.IamCompatible),
 		ResourceInstanceURL: reference.FromPtrValue(in.ResourceInstanceURL),
-		UpdatedBy:           reference.FromPtrValue(in.UpdatedBy),
 		CreatedAt:           ibmc.DateTimeToMetaV1Time(in.CreatedAt),
-		Crn:                 reference.FromPtrValue(in.Crn),
-		DeletedAt:           ibmc.DateTimeToMetaV1Time(in.DeletedAt),
-		GUID:                reference.FromPtrValue(in.Guid),
-		ID:                  reference.FromPtrValue(in.ID),
-		ResourceGroupID:     reference.FromPtrValue(in.ResourceGroupID),
-		State:               reference.FromPtrValue(in.State),
-		URL:                 reference.FromPtrValue(in.URL),
 		UpdatedAt:           ibmc.DateTimeToMetaV1Time(in.UpdatedAt),
+		DeletedAt:           ibmc.DateTimeToMetaV1Time(in.DeletedAt),
+		CreatedBy:           reference.FromPtrValue(in.CreatedBy),
+		UpdatedBy:           reference.FromPtrValue(in.UpdatedBy),
+		DeletedBy:           reference.FromPtrValue(in.DeletedBy),
 	}
+	// ServiceEndpoints can be found in instance.Parameters["service-endpoints"]
 	return o, nil
 }
 
-// IsUpToDate checks whether current state is up-to-date compared to the given
-// set of parameters.
-func IsUpToDate(name string, in *v1alpha1.ResourceKeyParameters, observed *rcv2.ResourceKey, l logging.Logger) (bool, error) {
+// IsUpToDate checks whether current state is up-to-date compared to the given set of parameters.
+func IsUpToDate(client ibmc.ClientSession, in *v1alpha1.ResourceKeyParameters, observed *rcv2.ResourceKey, l logging.Logger) (bool, error) {
 	desired := in.DeepCopy()
-	actual, err := GenerateResourceKeyParameters(observed)
+	actual, err := GenerateResourceKeyParameters(client, observed)
 	if err != nil {
 		return false, err
 	}
 
-	l.Info(cmp.Diff(desired, actual, cmpopts.IgnoreTypes(&runtimev1alpha1.Reference{}, &runtimev1alpha1.Selector{}, []runtimev1alpha1.Reference{})))
+	l.Info(cmp.Diff(desired, actual))
 
-	return cmp.Equal(desired, actual, cmpopts.EquateEmpty(),
-		cmpopts.IgnoreFields(v1alpha1.ResourceKeyParameters{}),
-		cmpopts.IgnoreTypes(&runtimev1alpha1.Reference{}, &runtimev1alpha1.Selector{}, []runtimev1alpha1.Reference{})), nil
+	return cmp.Equal(desired, actual, cmpopts.EquateEmpty(), cmpopts.IgnoreFields(v1alpha1.ResourceKeyParameters{})), nil
 }
 
 // GenerateResourceKeyParameters generates service instance parameters from resource instance
-func GenerateResourceKeyParameters(in *rcv2.ResourceKey) (*v1alpha1.ResourceKeyParameters, error) {
+func GenerateResourceKeyParameters(client ibmc.ClientSession, in *rcv2.ResourceKey) (*v1alpha1.ResourceKeyParameters, error) {
+
 	o := &v1alpha1.ResourceKeyParameters{
-		Name:   reference.FromPtrValue(in.Name),
-		Role:   in.Role,
-		Source: in.SourceCrn,
-		// TODO - need resolution for https://github.com/IBM/platform-services-go-sdk/issues/57
-		// Parameters: GenerateResourceKeyPostParameters(in.),
+		Name: reference.FromPtrValue(in.Name),
+		Role: in.Role,
 	}
 	return o, nil
-}
-
-// GenerateResourceKeyPostParameters generates v1alpha1.ResourceKeyPostParameters from rcv2.ResourceKeyPostParameters
-func GenerateResourceKeyPostParameters(in *rcv2.ResourceKeyPostParameters) *v1alpha1.ResourceKeyPostParameters {
-	o := &v1alpha1.ResourceKeyPostParameters{
-		ServiceidCrn: reference.FromPtrValue(in.ServiceidCrn),
-	}
-	return o
-}
-
-// GetConnectionDetails generate the connection details from the *rcv2.ResourceKey in a format ready to be set into a secret
-func GetConnectionDetails(cr *v1alpha1.ResourceKey, in *rcv2.ResourceKey) (managed.ConnectionDetails, error) {
-	if in.Credentials == nil {
-		return managed.ConnectionDetails{}, nil
-	}
-	if cr.Spec.ConnectionTemplates != nil {
-		return handleTemplatedConnectionVars(cr, in)
-	}
-	return handleFlettenedConnectionVars(in)
-}
-
-func handleTemplatedConnectionVars(cr *v1alpha1.ResourceKey, in *rcv2.ResourceKey) (managed.ConnectionDetails, error) {
-	creds, err := ibmc.ConvertStructToMap(in.Credentials)
-	if err != nil {
-		return nil, err
-	}
-	parser := ibmc.NewTemplateParser(cr.Spec.ConnectionTemplates, creds)
-	values, err := parser.Parse()
-	if err != nil {
-		return nil, err
-	}
-	return ibmc.ConvertVarsMap(values), nil
-}
-
-func handleFlettenedConnectionVars(in *rcv2.ResourceKey) (managed.ConnectionDetails, error) {
-	m := managed.ConnectionDetails{
-		"apikey":               ibmc.StrPtr2Bytes(in.Credentials.Apikey),
-		"iamApikeyDescription": ibmc.StrPtr2Bytes(in.Credentials.IamApikeyDescription),
-		"iamApikeyName":        ibmc.StrPtr2Bytes(in.Credentials.IamApikeyName),
-		"iamRoleCrn":           ibmc.StrPtr2Bytes(in.Credentials.IamRoleCrn),
-		"iamServiceidCrn":      ibmc.StrPtr2Bytes(in.Credentials.IamServiceidCrn),
-	}
-	f, err := flatten.Flatten(in.Credentials.GetProperties(), "", flatten.DotStyle)
-	if err != nil {
-		return nil, err
-	}
-	for k, v := range f {
-		switch v := v.(type) {
-		case int:
-			m[k] = []byte(fmt.Sprintf("%d", v))
-		case float64:
-			m[k] = []byte(fmt.Sprintf("%f", v))
-		default:
-			m[k] = []byte(fmt.Sprintf("%s", v))
-		}
-	}
-	return m, nil
 }

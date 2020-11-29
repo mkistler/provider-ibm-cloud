@@ -66,7 +66,7 @@ type ResourceKeyObservation struct {
 
 	// When you create a new key, a globally unique identifier (GUID) is assigned. This GUID is a unique internal
 	// identifier managed by the resource controller that corresponds to the key.
-	GUID string `json:"guid,omitempty"`
+	Guid string `json:"guid,omitempty"`
 
 	// The full Cloud Resource Name (CRN) associated with the key. For more information about this format, see [Cloud
 	// Resource Names](https://cloud.ibm.com/docs/overview?topic=overview-crn).
@@ -80,6 +80,9 @@ type ResourceKeyObservation struct {
 
 	// The short ID of the resource group.
 	ResourceGroupID string `json:"resourceGroupId,omitempty"`
+
+	// The CRN of resource instance or alias associated to the key.
+	SourceCrn string `json:"sourceCrn,omitempty"`
 
 	// The state of the key.
 	State string `json:"state,omitempty"`

@@ -1,8 +1,6 @@
 package resourceinstance
 
 import (
-	"strconv"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
@@ -21,30 +19,25 @@ const (
 	// StateActive represents a service instance in a running, available, and ready state
 	StateActive = "active"
 	// StateInactive represents a service instance in a not running state
-	StateInactive = "inactive"
-	// StatePendingReclamation means that delete has been initiated
-	StatePendingReclamation = "pending_reclamation"
-	errGetResPlaID          = "error getting resource plan ID"
-	errGetResGroupID        = "error getting resource group ID"
+	StateInactive    = "inactive"
+	errGetResPlaID   = "error getting resource plan ID"
+	errGetResGroupID = "error getting resource group ID"
 )
 
 // LateInitializeSpec fills optional and unassigned fields with the values in *rcv2.ResourceInstance object.
 func LateInitializeSpec(client ibmc.ClientSession, spec *v1alpha1.ResourceInstanceParameters, in *rcv2.ResourceInstance) error { // nolint:gocyclo
+	if spec.ResourceGroupName == nil {
+		rgName, err := ibmc.GetResourceGroupName(client, reference.FromPtrValue(in.ResourceGroupID))
+		if err != nil {
+			return err
+		}
+		spec.ResourceGroupName = rgName
+	}
 	if spec.AllowCleanup == nil {
 		spec.AllowCleanup = in.AllowCleanup
 	}
 	if spec.Parameters == nil {
 		spec.Parameters = ibmc.MapToRawExtension(in.Parameters)
-	}
-	if spec.EntityLock == nil {
-		spec.EntityLock = reference.ToPtrValue(strconv.FormatBool(*in.Locked))
-	}
-	if spec.Tags == nil {
-		tags, err := ibmc.GetResourceInstanceTags(client, reference.FromPtrValue(in.TargetCrn))
-		if err != nil {
-			return err
-		}
-		spec.Tags = tags
 	}
 	return nil
 }
@@ -68,7 +61,6 @@ func GenerateCreateResourceInstanceOptions(client ibmc.ClientSession, in v1alpha
 	o.Tags = in.Tags
 	o.AllowCleanup = in.AllowCleanup
 	o.Parameters = ibmc.RawExtensionToMap(in.Parameters)
-	o.EntityLock = in.EntityLock
 	return nil
 }
 
@@ -91,7 +83,7 @@ func GenerateUpdateResourceInstanceOptions(client ibmc.ClientSession, id string,
 func GenerateObservation(client ibmc.ClientSession, in *rcv2.ResourceInstance) (v1alpha1.ResourceInstanceObservation, error) {
 	o := v1alpha1.ResourceInstanceObservation{
 		ID:                  reference.FromPtrValue(in.ID),
-		GUID:                reference.FromPtrValue(in.Guid),
+		Guid:                reference.FromPtrValue(in.Guid),
 		Crn:                 reference.FromPtrValue(in.Crn),
 		URL:                 reference.FromPtrValue(in.URL),
 		AccountID:           reference.FromPtrValue(in.AccountID),
@@ -103,6 +95,7 @@ func GenerateObservation(client ibmc.ClientSession, in *rcv2.ResourceInstance) (
 		State:               reference.FromPtrValue(in.State),
 		Type:                reference.FromPtrValue(in.Type),
 		SubType:             reference.FromPtrValue(in.SubType),
+		Locked:              ibmc.BoolValue(in.Locked),
 		LastOperation:       ibmc.MapToRawExtension(in.LastOperation),
 		DashboardURL:        reference.FromPtrValue(in.DashboardURL),
 		PlanHistory:         GeneratePlanHistory(in.PlanHistory),
@@ -122,18 +115,6 @@ func GenerateObservation(client ibmc.ClientSession, in *rcv2.ResourceInstance) (
 	}
 	// ServiceEndpoints can be found in instance.Parameters["service-endpoints"]
 	return o, nil
-}
-
-// GenerateTarget generates Target from Crn
-func GenerateTarget(in *rcv2.ResourceInstance) string {
-	if in.Crn == nil {
-		return ""
-	}
-	crn, err := crn.Parse(*in.Crn)
-	if err != nil {
-		return ""
-	}
-	return crn.Region
 }
 
 // GeneratePlanHistory generates []v1alpha1.PlanHistoryItem from []rcv2.PlanHistoryItem
@@ -184,21 +165,13 @@ func GenerateResourceInstanceParameters(client ibmc.ClientSession, in *rcv2.Reso
 		return nil, err
 	}
 
-	tags, err := ibmc.GetResourceInstanceTags(client, reference.FromPtrValue(in.Crn))
-	if err != nil {
-		return nil, err
-	}
-
 	o := &v1alpha1.ResourceInstanceParameters{
 		Name:              reference.FromPtrValue(in.Name),
-		Target:            GenerateTarget(in),
 		ResourceGroupName: rgName,
 		ServiceName:       sName,
 		ResourcePlanName:  reference.FromPtrValue(pName),
 		AllowCleanup:      in.AllowCleanup,
 		Parameters:        ibmc.MapToRawExtension(in.Parameters),
-		Tags:              tags,
-		EntityLock:        reference.ToPtrValue(strconv.FormatBool(*in.Locked)),
 	}
 	return o, nil
 }

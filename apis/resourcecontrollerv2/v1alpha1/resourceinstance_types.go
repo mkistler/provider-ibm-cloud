@@ -35,7 +35,8 @@ type ResourceInstanceParameters struct {
 
 	// The name of the resource group where the instance is deployed
 	// +immutable
-	ResourceGroupName string `json:"resourceGroupName"`
+	// +optional
+	ResourceGroupName string `json:"resourceGroupName,omitempty"`
 
 	// The name of the service offering like cloud-object-storage, kms etc
 	// +immutable
@@ -57,11 +58,6 @@ type ResourceInstanceParameters struct {
 	// Configuration options represented as key-value pairs that are passed through to the target resource brokers.
 	// +optional
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
-
-	// Indicates if the resource instance is locked for further update or delete operations. It does not affect actions
-	// performed on child resources like aliases, bindings or keys. False by default.
-	// +optional
-	EntityLock *string `json:"entityLock,omitempty"`
 }
 
 // ResourceInstanceObservation are the observable fields of a ResourceInstance.
@@ -71,7 +67,7 @@ type ResourceInstanceObservation struct {
 
 	// When you create a new resource, a globally unique identifier (GUID) is assigned. This GUID is a unique internal
 	// identifier managed by the resource controller that corresponds to the instance.
-	GUID string `json:"guid,omitempty"`
+	Guid string `json:"guid,omitempty"`
 
 	// The full Cloud Resource Name (CRN) associated with the instance. For more information about this format, see [Cloud
 	// Resource Names](https://cloud.ibm.com/docs/overview?topic=overview-crn).
@@ -107,6 +103,9 @@ type ResourceInstanceObservation struct {
 
 	// The sub-type of instance, e.g. `cfaas`.
 	SubType string `json:"subType,omitempty"`
+
+	// A boolean that dictates if the resource instance is locked or not.
+	Locked bool `json:"locked,omitempty"`
 
 	// The status of the last operation requested on the instance.
 	LastOperation *runtime.RawExtension `json:"lastOperation,omitempty"`
