@@ -135,7 +135,7 @@ func observation(m ...func(*v1alpha1.ResourceKeyObservation)) *v1alpha1.Resource
 		CreatedBy:           createdBy,
 		DeletedBy:           "",
 		IamCompatible:       iamCompatible,
-		CreatedAt:           GenerateMetaV1Time(&createdAt),
+		CreatedAt:           ibmc.DateTimeToMetaV1Time(&createdAt),
 		Crn:                 resCrn,
 		DeletedAt:           nil,
 		GUID:                guid,
@@ -144,7 +144,7 @@ func observation(m ...func(*v1alpha1.ResourceKeyObservation)) *v1alpha1.Resource
 		ResourceInstanceURL: resInstURL,
 		State:               state,
 		URL:                 url,
-		UpdatedAt:           GenerateMetaV1Time(&createdAt),
+		UpdatedAt:           ibmc.DateTimeToMetaV1Time(&createdAt),
 		UpdatedBy:           createdBy,
 	}
 

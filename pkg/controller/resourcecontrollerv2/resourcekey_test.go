@@ -114,7 +114,7 @@ func rkWithResourceInstanceURL(s string) keyModifier {
 
 func rkWithCreatedAt(t strfmt.DateTime) keyModifier {
 	return func(i *v1alpha1.ResourceKey) {
-		i.Status.AtProvider.CreatedAt = ibmcrk.GenerateMetaV1Time(&t)
+		i.Status.AtProvider.CreatedAt = ibmc.DateTimeToMetaV1Time(&t)
 	}
 }
 

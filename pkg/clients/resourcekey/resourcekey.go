@@ -2,14 +2,10 @@ package resourcekey
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/go-openapi/strfmt"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jeremywohl/flatten"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	runtimev1alpha1 "github.com/crossplane/crossplane-runtime/apis/core/v1alpha1"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
@@ -65,27 +61,17 @@ func GenerateObservation(in *rcv2.ResourceKey) (v1alpha1.ResourceKeyObservation,
 		IamCompatible:       ibmc.BoolValue(in.IamCompatible),
 		ResourceInstanceURL: reference.FromPtrValue(in.ResourceInstanceURL),
 		UpdatedBy:           reference.FromPtrValue(in.UpdatedBy),
-		CreatedAt:           GenerateMetaV1Time(in.CreatedAt),
+		CreatedAt:           ibmc.DateTimeToMetaV1Time(in.CreatedAt),
 		Crn:                 reference.FromPtrValue(in.Crn),
-		DeletedAt:           GenerateMetaV1Time(in.DeletedAt),
+		DeletedAt:           ibmc.DateTimeToMetaV1Time(in.DeletedAt),
 		GUID:                reference.FromPtrValue(in.Guid),
 		ID:                  reference.FromPtrValue(in.ID),
 		ResourceGroupID:     reference.FromPtrValue(in.ResourceGroupID),
 		State:               reference.FromPtrValue(in.State),
 		URL:                 reference.FromPtrValue(in.URL),
-		UpdatedAt:           GenerateMetaV1Time(in.UpdatedAt),
+		UpdatedAt:           ibmc.DateTimeToMetaV1Time(in.UpdatedAt),
 	}
 	return o, nil
-}
-
-// GenerateMetaV1Time converts strfmt.DateTime to metav1.Time
-// TODO - extract this to parent `clients` package
-func GenerateMetaV1Time(t *strfmt.DateTime) *metav1.Time {
-	if t == nil {
-		return nil
-	}
-	tx := metav1.NewTime(time.Time(*t))
-	return &tx
 }
 
 // IsUpToDate checks whether current state is up-to-date compared to the given
